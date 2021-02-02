@@ -58,7 +58,7 @@ class _DatePickerWidgetState extends State<DatePickerWidget> {
   Map<String, FixedExtentScrollController> _scrollCtrlMap;
   Map<String, List<int>> _valueRangeMap;
 
-  bool _isChangeDateRange = false;
+  var heightWorkaround = 0.0;
 
   _DatePickerWidgetState(
       DateTime minDateTime, DateTime maxDateTime, DateTime initialDateTime) {
@@ -210,7 +210,7 @@ class _DatePickerWidgetState extends State<DatePickerWidget> {
       flex: 1,
       child: Container(
         padding: EdgeInsets.all(8.0),
-        height: widget.pickerTheme.pickerHeight,
+        height: widget.pickerTheme.pickerHeight + heightWorkaround,
         decoration: BoxDecoration(color: widget.pickerTheme.backgroundColor),
         child: CupertinoPicker.builder(
           backgroundColor: widget.pickerTheme.backgroundColor,
@@ -267,12 +267,7 @@ class _DatePickerWidgetState extends State<DatePickerWidget> {
   }
 
   /// change range of month and day
-  void _changeDateRange() {
-    if (_isChangeDateRange) {
-      return;
-    }
-    _isChangeDateRange = true;
-
+  void _changeDateRange() async {
     List<int> monthRange = _calcMonthRange();
     bool monthRangeChanged = _monthRange.first != monthRange.first ||
         _monthRange.last != monthRange.last;
@@ -287,7 +282,7 @@ class _DatePickerWidgetState extends State<DatePickerWidget> {
     if (dayRangeChanged) {
       // day range changed, need limit the value of selected day
       if (!widget.onMonthChangeStartWithFirstDate) {
-        max(min(_currDay, dayRange.last), dayRange.first);
+        _currDay = max(min(_currDay, dayRange.last), dayRange.first);
       } else {
         _currDay = dayRange.first;
       }
@@ -304,22 +299,31 @@ class _DatePickerWidgetState extends State<DatePickerWidget> {
     if (monthRangeChanged) {
       // CupertinoPicker refresh data not working (https://github.com/flutter/flutter/issues/22999)
       int currMonth = _currMonth;
-      _monthScrollCtrl.jumpToItem(monthRange.last - monthRange.first);
-      if (currMonth < monthRange.last) {
-        _monthScrollCtrl.jumpToItem(currMonth - monthRange.first);
-      }
+      await _monthScrollCtrl.animateToItem(
+          min(currMonth, monthRange.last) - monthRange.first,
+          duration: Duration(microseconds: 1),
+          curve: Curves.easeInOut);
     }
 
     if (dayRangeChanged) {
       // CupertinoPicker refresh data not working (https://github.com/flutter/flutter/issues/22999)
       int currDay = _currDay;
-      _dayScrollCtrl.jumpToItem(dayRange.last - dayRange.first);
-      if (currDay < dayRange.last) {
-        _dayScrollCtrl.jumpToItem(currDay - dayRange.first);
-      }
+      await _dayScrollCtrl.animateToItem(
+          min(currDay, dayRange.last) - dayRange.first,
+          duration: Duration(microseconds: 1),
+          curve: Curves.easeInOut);
     }
 
-    _isChangeDateRange = false;
+    if (dayRangeChanged || monthRangeChanged) {
+      if (heightWorkaround == 0)
+        setState(() {
+          heightWorkaround = 0.0001;
+        });
+      else
+        setState(() {
+          heightWorkaround = 0;
+        });
+    }
   }
 
   /// calculate the count of day in current month
