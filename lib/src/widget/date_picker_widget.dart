@@ -101,6 +101,12 @@ class _DatePickerWidgetState extends State<DatePickerWidget> {
   }
 
   @override
+  initState() {
+    super.initState();
+    _onSelectedChange();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       child: Material(
